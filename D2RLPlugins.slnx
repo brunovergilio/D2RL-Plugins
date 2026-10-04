@@ -1,0 +1,8 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="Common/Common.vcxproj" Id="84b7d41b-1bc8-485f-89b7-24fde01f4e01" />
+  <Project Path="Hellforge/Hellforge.vcxproj" Id="84b154ed-7669-4533-8512-bd217f7da4b7" />
+</Solution>

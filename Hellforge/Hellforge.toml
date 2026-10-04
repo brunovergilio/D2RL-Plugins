@@ -1,0 +1,31 @@
+# Hellforge
+# Enables custom drop tables, drop counts and drop retry attempts for the hellforge quest, per difficulty.
+
+[hellforge]
+# Master switch - set to false to prevent hooks from being installed.
+enabled = true
+
+# If too many items are already on the ground, the drop function may fail. This
+# determines how many extra attempts should be done before giving up.
+max_retries = 5
+
+# There are 2 loot tables for each difficulty, one for gems and one for runes.
+# Max pool size is 255 for both runes and gems (independent of each other).
+
+[normal]
+gem_count = 3
+rune_count = 1
+rune_pool = ["r01", "r02", "r03", "r04", "r05", "r06", "r07", "r08", "r09", "r10", "r11"]
+gem_pool = ["gpv", "gpr", "gpb", "gpy", "gpg", "gpw", "skz"]
+
+[nightmare]
+gem_count = 5
+rune_count = 2
+rune_pool = ["r12", "r13", "r14", "r15", "r16", "r17", "r18", "r19", "r20", "r21", "r22"]
+gem_pool = ["gpv", "gpr", "gpb", "gpy", "gpg", "gpw", "skz"]
+
+[hell]
+gem_count = 6
+rune_count = 4
+rune_pool = ["r20", "r21", "r22", "r23", "r24", "r25", "r26", "r27", "r28", "r29"]
+gem_pool = ["gpv", "gpr", "gpb", "gpy", "gpg", "gpw", "skz"]
