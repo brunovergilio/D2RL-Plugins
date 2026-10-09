@@ -1,5 +1,6 @@
 #include <D2RLPlugin/api.h>
 #include "Common/D2Functions.h"
+#define TOML_EXCEPTIONS 0
 #include "Third Party/toml.hpp"
 #include <string_view>
 #include <filesystem>
@@ -16,10 +17,17 @@ enabled = true
 
 # If too many items are already on the ground, the drop function may fail. This
 # determines how many extra attempts should be done before giving up.
+# Maximum amount is 255 (but avoid going this high).
 max_retries = 5
 
-# There are 2 loot tables for each difficulty, one for gems and one for runes.
+# How many game frames before the next gem or rune drops. Default is 20.
+drop_speed = 20
+
+# gem_count and rune_count specify how many of each will drop. gem_pool and rune_pool
+# are the loot tables from which drops will be selected from, one for gems and one
+# for runes, for each difficulty.
 # Max pool size is 255 for both runes and gems (independent of each other).
+# Item code are at most 4 characters long. Anything over that is ignored.
 
 [normal]
 gem_count = 3
@@ -43,21 +51,24 @@ gem_pool = ["gpv", "gpr", "gpb", "gpy", "gpg", "gpw", "skz"])toml"sv;
 static constexpr D2RL::PluginFlags PatchingSampleFlags = D2RL::PluginFlags::Shared | D2RL::PluginFlags::NativeHooks;
 
 template<typename Fn>
-Fn GetFn(const D2RL::PluginContext* pContext, uintptr_t rva, const void* pExpected, uint32_t expectedSize, const char* pFunctionName)
+bool GetFn(const D2RL::PluginContext* pContext, uintptr_t rva, const void* pExpected, uint32_t expectedSize, const char* pFunctionName, Fn& fn)
 {
+
 	if (!pContext->CheckExpectedBytes(rva, pExpected, expectedSize))
 	{
 		char msg[128];
 		snprintf(msg, 128 - 1, "Invalid entry point: %s.", pFunctionName);
 		pContext->LogError(msg);
 
-		return reinterpret_cast<Fn>(nullptr);
+		fn = reinterpret_cast<Fn>(nullptr);
+		return false;
 	}
 
-	return reinterpret_cast<Fn>(pContext->exeBase + rva);
+	fn = reinterpret_cast<Fn>(pContext->exeBase + rva);
+	return true;
 }
 
-#define D2_GET_FUNCTION(ctx, name) GetFn<name##Fn>(ctx, k##name##RVA, k##name##ExpectedBytes.data(), static_cast<uint32_t>(k##name##ExpectedBytes.size()), kp##name##Str)
+#define D2_GET_FUNCTION(ctx, name) GetFn<name##Fn>(ctx, k##name##RVA, k##name##ExpectedBytes.data(), static_cast<uint32_t>(k##name##ExpectedBytes.size()), kp##name##Str, name)
 
 UNITS_ChangeAnimModeFn UNITS_ChangeAnimMode{};
 QUESTS_GetGlobalSeedFn QUESTS_GetGlobalSeed{};
@@ -72,6 +83,8 @@ QUESTS_GetQuestDataFn QUESTS_GetQuestData{};
 constexpr uint8_t kInvalidRoll = std::numeric_limits<uint8_t>::max();
 constexpr uint8_t kMaxGems = kInvalidRoll;
 constexpr uint8_t kMaxRunes = kMaxGems;
+constexpr uint8_t kMaxFailedAttempts = std::numeric_limits<uint8_t>::max() - 1;
+constexpr int32_t kDefaultDropSpeed = 20;
 
 
 // Forward declarations
@@ -93,70 +106,57 @@ public:
 
 	bool Install(const D2RL::PluginContext* pContext) noexcept
 	{
-		LoadConfig(pContext);
+		if (!LoadConfig(pContext))
+		{
+			return false;
+		}
 
 		if (!m_Enabled)
 		{
+			pContext->LogInfo("Config settings loaded, but plugin is disabled - no hooks installed.");
 			return true;
 		}
 
-		auto base = pContext->exeBase;
-		UNITS_ChangeAnimMode = D2_GET_FUNCTION(pContext, UNITS_ChangeAnimMode);
-		QUESTS_GetGlobalSeed = D2_GET_FUNCTION(pContext, QUESTS_GetGlobalSeed);
-		SEED_RollLimitedRandomNumber = D2_GET_FUNCTION(pContext, SEED_RollLimitedRandomNumber);
-		D2GAME_DropItemAtUnit = D2_GET_FUNCTION(pContext, D2GAME_DropItemAtUnit);
-		EVENT_SetEvent = D2_GET_FUNCTION(pContext, EVENT_SetEvent);
-		QUESTS_GetQuestData = D2_GET_FUNCTION(pContext, QUESTS_GetQuestData);
+		if (!D2_GET_FUNCTION(pContext, UNITS_ChangeAnimMode) ||
+			!D2_GET_FUNCTION(pContext, QUESTS_GetGlobalSeed) ||
+			!D2_GET_FUNCTION(pContext, SEED_RollLimitedRandomNumber) ||
+			!D2_GET_FUNCTION(pContext, D2GAME_DropItemAtUnit) ||
+			!D2_GET_FUNCTION(pContext, EVENT_SetEvent) ||
+			!D2_GET_FUNCTION(pContext, QUESTS_GetQuestData))
+		{
+			pContext->LogError("Failure in loading one or more function pointers.");
+			return false;
+		}
 
-		bool fn1 = pContext->CheckExpectedBytes(kACT4Q3_CreateRewardRVA, kACT4Q3_CreateRewardExpectedBytes.data(), (uint32_t)kACT4Q3_CreateRewardExpectedBytes.size())
-			&& pContext->InstallInlineHook(kACT4Q3_CreateRewardRVA, kACT4Q3_CreateRewardExpectedBytes.data(), (uint32_t)kACT4Q3_CreateRewardExpectedBytes.size(),
-				ACT4Q3_CreateRewardHook, &ACT4Q3_CreateRewardOriginal);
+		if (!pContext->CheckExpectedBytes(kACT4Q3_CreateRewardRVA, kACT4Q3_CreateRewardExpectedBytes.data(), (uint32_t)kACT4Q3_CreateRewardExpectedBytes.size())
+			|| !pContext->InstallInlineHook(kACT4Q3_CreateRewardRVA, kACT4Q3_CreateRewardExpectedBytes.data(), (uint32_t)kACT4Q3_CreateRewardExpectedBytes.size(),
+				ACT4Q3_CreateRewardHook, &ACT4Q3_CreateRewardOriginal))
+		{
+			pContext->LogError("Couldn't hook function.");
+			return false;
+		}
 
-		bool fn2 = pContext->CheckExpectedBytes(kOBJECTS_OperateFunction49_HellForgeSetValuesRVA,
+		if (!pContext->CheckExpectedBytes(kOBJECTS_OperateFunction49_HellForgeSetValuesRVA,
 			kOBJECTS_OperateFunction49_HellForgeSetValuesExpectedBytes.data(), (uint32_t)kOBJECTS_OperateFunction49_HellForgeSetValuesExpectedBytes.size())
-			&& pContext->InstallInlineHook(kOBJECTS_OperateFunction49_HellForgeSetValuesRVA,
+			|| !pContext->InstallInlineHook(kOBJECTS_OperateFunction49_HellForgeSetValuesRVA,
 				kOBJECTS_OperateFunction49_HellForgeSetValuesExpectedBytes.data(), (uint32_t)kOBJECTS_OperateFunction49_HellForgeSetValuesExpectedBytes.size(),
-				OBJECTS_OperateFunction49_HellForgeSetValuesHook, &OBJECTS_OperateFunction49_HellForgeSetValuesOriginal);
+				OBJECTS_OperateFunction49_HellForgeSetValuesHook, &OBJECTS_OperateFunction49_HellForgeSetValuesOriginal))
+		{
+			pContext->LogError("Couldn't hook function.");
+			return false;
+		}
 
-		return fn1 && fn2;
+		pContext->LogInfo("Plugin enabled - hooks installed.");
+		return true;
 	}
 
 	bool IsEnabled() const { return m_Enabled; }
-
-	auto& GetLootTable(uint8_t difficulty) const { return m_LootTables[difficulty]; }
 	auto GetMaxRetries() const { return m_MaxRetries; }
+	auto GetDropSpeed() const { return m_DropSpeed; }
+	auto& GetLootTable(uint8_t difficulty) const { return m_LootTables[difficulty]; }
 
 private:
-	std::filesystem::path GetEXEDirectory()
-	{
-		std::vector<wchar_t> buffer(MAX_PATH);
-		DWORD copied = 0;
-
-		while (true) {
-			copied = ::GetModuleFileNameW(nullptr, buffer.data(), static_cast<DWORD>(buffer.size()));
-
-			if (copied == 0)
-			{
-				return {};
-			}
-
-			if (copied < buffer.size())
-			{
-				buffer.resize(copied);
-				break;
-			}
-
-			// Double the buffer size and retry
-			buffer.resize(buffer.size() * 2);
-		}
-
-		std::filesystem::path exePath(buffer.begin(), buffer.end());
-
-		// Return only the parent directory
-		return exePath.parent_path();
-	}
-
-	void LoadConfig(const D2RL::PluginContext* pContext)
+	bool LoadConfig(const D2RL::PluginContext* pContext)
 	{
 		toml::parse_result table;
 
@@ -175,18 +175,26 @@ private:
 			}
 		}
 
-		if (table.empty())
+		if (table.failed())
 		{
-			pContext->LogError("Couldn't read Hellforge config file, loading default settings.");
+			pContext->LogInfo("Couldn't read Hellforge config file, loading default settings.");
 			table = toml::parse(kTOMLFile);
+			// This should be an assert
+			if (table.failed())
+			{
+				pContext->LogError("Couldn't read default Hellforge config file.");
+				return false;
+			}
 		}
 
 		auto config = table["hellforge"];
 		m_Enabled = config["enabled"].value_or(false);
-		m_MaxRetries = config["max_retries"].value_or(0);
+		m_MaxRetries = std::min(config["max_retries"].value_or(0u), uint32_t(kMaxFailedAttempts));
+		m_DropSpeed = config["drop_speed"].value_or(kDefaultDropSpeed);
 
-		auto fillValues = [this, &table](const char* pTable, uint32_t index)
+		auto fillValues = [this, pContext, &table](const char* pTable, uint32_t index) noexcept -> bool
 			{
+				// Item codes are at most 4 characters long
 				union StrToCode
 				{
 					uint32_t itemCode;
@@ -198,45 +206,77 @@ private:
 				
 				m_LootTables[index].m_GemCount = lootTable["gem_count"].value_or<uint16_t>(0);
 				auto gems = lootTable["gem_pool"].as_array();
-				m_LootTables[index].m_GemPool.reserve(std::min(gems->size(), size_t(kMaxGems)));
-				for (auto it = gems->begin(); it != gems->end() && m_LootTables[index].m_GemPool.size() <= kMaxGems; it++)
+				if (m_LootTables[index].m_GemCount > 0 && gems)
 				{
-					strToCode.itemCode = '    ';
-					currChar = 0;
-					auto sv = it->value_or(""sv);
-					for (auto s : sv)
+					m_LootTables[index].m_GemPool.reserve(std::min(gems->size(), size_t(kMaxGems)));
+					for (auto it = gems->begin(); it != gems->end() && m_LootTables[index].m_GemPool.size() < kMaxGems; it++)
 					{
-						strToCode.codeStr[currChar++] = s;
+						strToCode.itemCode = '    ';
+						currChar = 0;
+						auto sv = it->value_or(""sv);
+						if (sv.length() > 4)
+						{
+							// Invalid item code
+							continue;
+						}
+
+						for (auto s : sv)
+						{
+							strToCode.codeStr[currChar++] = s;
+						}
+
+						m_LootTables[index].m_GemPool.push_back(strToCode.itemCode);
 					}
 
-					m_LootTables[index].m_GemPool.push_back(strToCode.itemCode);
+					if (m_LootTables[index].m_GemPool.size() == 0)
+					{
+						pContext->LogError("No gems set or invalid pool.");
+						return false;
+					}
 				}
+
 
 				m_LootTables[index].m_RuneCount = lootTable["rune_count"].value_or<uint16_t>(0);
 				auto runes = lootTable["rune_pool"].as_array();
-				m_LootTables[index].m_RunePool.reserve(std::min(runes->size(), size_t(kMaxRunes)));
-				for (auto it = runes->begin(); it != runes->end() && m_LootTables[index].m_RunePool.size() <= kMaxRunes; it++)
+				if (m_LootTables[index].m_RuneCount > 0 && runes)
 				{
-					strToCode.itemCode = '    ';
-					currChar = 0;
-					auto sv = it->value_or(""sv);
-					for (auto s : sv)
+					m_LootTables[index].m_RunePool.reserve(std::min(runes->size(), size_t(kMaxRunes)));
+					for (auto it = runes->begin(); it != runes->end() && m_LootTables[index].m_RunePool.size() < kMaxRunes; it++)
 					{
-						strToCode.codeStr[currChar++] = s;
+						strToCode.itemCode = '    ';
+						currChar = 0;
+						auto sv = it->value_or(""sv);
+						if (sv.length() > 4)
+						{
+							// Invalid item code
+							continue;
+						}
+
+						for (auto s : sv)
+						{
+							strToCode.codeStr[currChar++] = s;
+						}
+
+						m_LootTables[index].m_RunePool.push_back(strToCode.itemCode);
 					}
 
-					m_LootTables[index].m_RunePool.push_back(strToCode.itemCode);
+					if (m_LootTables[index].m_RunePool.size() == 0)
+					{
+						pContext->LogError("No runes set or invalid pool.");
+						return false;
+					}
 				}
+
+				return true;
 			};
 
-		fillValues("normal", 0);
-		fillValues("nightmare", 1);
-		fillValues("hell", 2);
+		return fillValues("normal", 0) && fillValues("nightmare", 1) && !fillValues("hell", 2);
 	}
 
 private:
 	LootTable m_LootTables[3];
 	uint32_t m_MaxRetries{};
+	int32_t m_DropSpeed;
 	bool m_Enabled{};
 };
 
@@ -302,6 +342,7 @@ void __fastcall ACT4Q3_CreateRewardHook(void* pQuestData, void* pUnit)
 
 	auto& lootTable = g_HellforgePlugin.GetLootTable(difficulty);
 	auto maxRetries = uint8_t(g_HellforgePlugin.GetMaxRetries());
+	auto dropSpeed = g_HellforgePlugin.GetDropSpeed();
 
 	if (hellforgeQuestData.bSoulstoneSmashed)
 	{
@@ -346,6 +387,7 @@ void __fastcall ACT4Q3_CreateRewardHook(void* pQuestData, void* pUnit)
 			{
 				++gemsDropped;
 				hellforgeQuestData.nLastUnusedGemRoll = kInvalidRoll;
+				hellforgeQuestData.nFailedDropAttempts = 0;
 			}
 			else
 			{
@@ -386,6 +428,7 @@ void __fastcall ACT4Q3_CreateRewardHook(void* pQuestData, void* pUnit)
 		{
 			hellforgeQuestData.nRunesRemaining--;
 			hellforgeQuestData.nLastUnusedRuneRoll = kInvalidRoll;
+			hellforgeQuestData.nFailedDropAttempts = 0;
 		}
 		else
 		{
@@ -405,7 +448,7 @@ void __fastcall ACT4Q3_CreateRewardHook(void* pQuestData, void* pUnit)
 	}
 	else
 	{
-		EVENT_SetEvent(pGame, pUnit, 7, gameFrame + 20, 0, 0, 0);
+		EVENT_SetEvent(pGame, pUnit, 7, gameFrame + dropSpeed, 0, 0, 0);
 	}
 }
 
