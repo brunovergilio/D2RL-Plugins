@@ -1,10 +1,4 @@
-#include <D2RLPlugin/api.h>
 #include "Common/D2Functions.h"
-#define TOML_EXCEPTIONS 0
-#include "Third Party/toml.hpp"
-#include <string_view>
-#include <filesystem>
-using namespace std::literals;
 
 
 constexpr auto kTOMLFile =
@@ -50,25 +44,7 @@ gem_pool = ["gpv", "gpr", "gpb", "gpy", "gpg", "gpw", "skz"])toml"sv;
 
 static constexpr D2RL::PluginFlags PatchingSampleFlags = D2RL::PluginFlags::Shared | D2RL::PluginFlags::NativeHooks;
 
-template<typename Fn>
-bool GetFn(const D2RL::PluginContext* pContext, uintptr_t rva, const void* pExpected, uint32_t expectedSize, const char* pFunctionName, Fn& fn)
-{
 
-	if (!pContext->CheckExpectedBytes(rva, pExpected, expectedSize))
-	{
-		char msg[128];
-		snprintf(msg, 128 - 1, "Invalid entry point: %s.", pFunctionName);
-		pContext->LogError(msg);
-
-		fn = reinterpret_cast<Fn>(nullptr);
-		return false;
-	}
-
-	fn = reinterpret_cast<Fn>(pContext->exeBase + rva);
-	return true;
-}
-
-#define D2_GET_FUNCTION(ctx, name) GetFn<name##Fn>(ctx, k##name##RVA, k##name##ExpectedBytes.data(), static_cast<uint32_t>(k##name##ExpectedBytes.size()), kp##name##Str, name)
 
 UNITS_ChangeAnimModeFn UNITS_ChangeAnimMode{};
 QUESTS_GetGlobalSeedFn QUESTS_GetGlobalSeed{};
@@ -270,7 +246,7 @@ private:
 				return true;
 			};
 
-		return fillValues("normal", 0) && fillValues("nightmare", 1) && !fillValues("hell", 2);
+		return fillValues("normal", 0) && fillValues("nightmare", 1) && fillValues("hell", 2);
 	}
 
 private:
@@ -459,9 +435,9 @@ static constexpr D2RL::PluginInfo PatchingSampleInfo
 	.abiVersion = D2RL_PLUGIN_ABI_VERSION,
 	.id = "hellforge",
 	.name = "Hellforge Plugin",
-	.version = "0.9.0",
+	.version = "1.0.0",
 	.author = "ArchVile",
-	.description = "Allows control over how many gems and runes the hellforge quest gives, as well as which ones.",
+	.description = "Allows control over how many gems and runes the hellforge quest gives, along with their item pools, per difficulty.",
 	.flags = PatchingSampleFlags,
 };
 

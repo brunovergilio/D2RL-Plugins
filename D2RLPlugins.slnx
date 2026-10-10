@@ -5,4 +5,5 @@
   </Configurations>
   <Project Path="Common/Common.vcxproj" Id="84b7d41b-1bc8-485f-89b7-24fde01f4e01" />
   <Project Path="Hellforge/Hellforge.vcxproj" Id="84b154ed-7669-4533-8512-bd217f7da4b7" />
+  <Project Path="QualKehk/QualKehk.vcxproj" Id="f975cbb8-0802-448e-8411-398ff7ae29e4" />
 </Solution>
