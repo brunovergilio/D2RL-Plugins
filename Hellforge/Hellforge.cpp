@@ -98,27 +98,11 @@ public:
 			!D2_GET_FUNCTION(pContext, SEED_RollLimitedRandomNumber) ||
 			!D2_GET_FUNCTION(pContext, D2GAME_DropItemAtUnit) ||
 			!D2_GET_FUNCTION(pContext, EVENT_SetEvent) ||
-			!D2_GET_FUNCTION(pContext, QUESTS_GetQuestData))
+			!D2_GET_FUNCTION(pContext, QUESTS_GetQuestData) ||
+			!D2_HOOK_FUNCTION(pContext, ACT4Q3_CreateReward) ||
+			!D2_HOOK_FUNCTION(pContext, OBJECTS_OperateFunction49_HellForgeSetValues))
 		{
-			pContext->LogError("Failure in loading one or more function pointers.");
-			return false;
-		}
-
-		if (!pContext->CheckExpectedBytes(kACT4Q3_CreateRewardRVA, kACT4Q3_CreateRewardExpectedBytes.data(), (uint32_t)kACT4Q3_CreateRewardExpectedBytes.size())
-			|| !pContext->InstallInlineHook(kACT4Q3_CreateRewardRVA, kACT4Q3_CreateRewardExpectedBytes.data(), (uint32_t)kACT4Q3_CreateRewardExpectedBytes.size(),
-				ACT4Q3_CreateRewardHook, &ACT4Q3_CreateRewardOriginal))
-		{
-			pContext->LogError("Couldn't hook function.");
-			return false;
-		}
-
-		if (!pContext->CheckExpectedBytes(kOBJECTS_OperateFunction49_HellForgeSetValuesRVA,
-			kOBJECTS_OperateFunction49_HellForgeSetValuesExpectedBytes.data(), (uint32_t)kOBJECTS_OperateFunction49_HellForgeSetValuesExpectedBytes.size())
-			|| !pContext->InstallInlineHook(kOBJECTS_OperateFunction49_HellForgeSetValuesRVA,
-				kOBJECTS_OperateFunction49_HellForgeSetValuesExpectedBytes.data(), (uint32_t)kOBJECTS_OperateFunction49_HellForgeSetValuesExpectedBytes.size(),
-				OBJECTS_OperateFunction49_HellForgeSetValuesHook, &OBJECTS_OperateFunction49_HellForgeSetValuesOriginal))
-		{
-			pContext->LogError("Couldn't hook function.");
+			pContext->LogError("Failure in loading / hooking one or more function pointers.");
 			return false;
 		}
 

@@ -161,10 +161,11 @@ struct D2QuestArgStrc
 		};
 		struct
 		{
-			int32_t nNPCNo;
-			uint32_t unk0x16;
-			int32_t nMessageIndex;
-			uint32_t unk0x1A;
+			int16_t nNPCNo;
+			uint16_t unk0x16;
+			uint32_t pad0;
+			int16_t nMessageIndex;
+			uint16_t unk0x1A;
 		};
 		struct
 		{

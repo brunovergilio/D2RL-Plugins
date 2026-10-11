@@ -7,10 +7,17 @@ enabled = true
 
 # If too many items are already on the ground, the drop function may fail. This
 # determines how many extra attempts should be done before giving up.
+# Maximum amount is 255 (but avoid going this high).
 max_retries = 5
 
-# There are 2 loot tables for each difficulty, one for gems and one for runes.
+# How many game frames before the next gem or rune drops. Default is 20.
+drop_speed = 20
+
+# gem_count and rune_count specify how many of each will drop. gem_pool and rune_pool
+# are the loot tables from which drops will be selected from, one for gems and one
+# for runes, for each difficulty.
 # Max pool size is 255 for both runes and gems (independent of each other).
+# Item code are at most 4 characters long. Anything over that is ignored.
 
 [normal]
 gem_count = 3

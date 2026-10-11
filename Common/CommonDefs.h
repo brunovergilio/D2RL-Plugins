@@ -8,7 +8,6 @@
 #define TOML_EXCEPTIONS 0
 #include "Third Party/toml.hpp"
 #include <string_view>
-#include <filesystem>
 using namespace std::literals;
 
 
@@ -39,9 +38,6 @@ bool GetFn(const D2RL::PluginContext* pContext, uintptr_t rva, const void* pExpe
 template<typename Fn>
 bool HookFn(const D2RL::PluginContext* pContext, uintptr_t rva, const void* pExpected, uint32_t expectedSize, const char* pFunctionName, Fn targetFn, Fn& originalFn)
 {
-	targetFn = reinterpret_cast<Fn>(nullptr);
-	originalFn = reinterpret_cast<Fn>(nullptr);
-
 	if (!pContext->CheckExpectedBytes(rva, pExpected, expectedSize))
 	{
 		char msg[128];
