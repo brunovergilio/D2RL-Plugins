@@ -33,6 +33,50 @@ struct D2GameStrc
 	void* pQuestControl; // D2QuestInfoStrc
 };
 
+using D2MonStatsTxt = uint8_t;
+using D2AiControlStrc = uint8_t;
+using D2AiParamStrc = uint8_t;
+using D2MonsterInteractStrc = uint8_t;
+using D2AiControlStrc = uint8_t;
+
+
+struct D2UnkMonsterDataStrc
+{
+	int32_t unk0x00;
+	int32_t nLifePercentage;
+	int32_t unk0x08;
+	uint8_t nCount;
+	uint8_t pad0x0D[3];
+};
+
+struct D2MonsterDataStrc
+{
+	D2MonStatsTxt* pMonstatsTxt;
+	uint8_t nComponent[16];
+	uint16_t wNameSeed;
+	uint8_t nTypeFlag;
+	uint8_t nLastAnimMode;
+	uint32_t dwDurielFlag;
+	uint8_t nMonUmod[10];
+	uint16_t wBossHcIdx;
+	D2AiControlStrc* pAiControl;
+	union
+	{
+		D2AiParamStrc* pAiParam;
+		struct Unicode* wszMonName;
+	};
+	D2MonsterInteractStrc* pMonInteract;
+	uint32_t unk0x34;
+	uint32_t unk0x38;
+	D2UnkMonsterDataStrc unk0x3C;
+	uint32_t unk0x4C;
+	uint32_t pVision;
+	uint32_t dwAiState;
+	uint32_t dwTxtLevelNo;
+	uint16_t wSummonerFlag;
+	uint8_t pad0x5E[2];
+};
+
 
 struct D2UnitStrc
 {
@@ -173,4 +217,14 @@ struct D2QuestArgStrc
 			int32_t nNewLevel;
 		};
 	};
+};
+
+
+struct D2GSPacketSrv5D
+{
+	uint8_t nHeader;
+	uint8_t nQuestId;
+	uint8_t nFlags;
+	uint8_t nState;
+	uint16_t field_4;
 };
