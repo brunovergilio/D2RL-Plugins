@@ -5,15 +5,15 @@
 # Master switch - set to false to prevent hooks from being installed.
 enabled = true
 
-# runes represents an array of item codes. These are not runes the code rolls from - they're
+# rewards represents an array of item codes. These are not items the code rolls from - they're
 # the exact rewards Qual-Kehk will give per difficulty. Maximum reward count = 40.
 # Item code are at most 4 characters long. Anything over that is ignored.
 
 [normal]
-runes = ["r07", "r08", "r09"]
+rewards = ["r07", "r08", "r09"]
 
 [nightmare]
-runes = ["r16", "r17", "r18"]
+rewards = ["r16", "r17", "r18"]
 
 [hell]
-runes = ["r21", "r22", "r23"]
+rewards = ["r21", "r22", "r23"]

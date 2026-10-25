@@ -266,7 +266,7 @@ struct D2Act4Quest3CustomStrc
 
 void __fastcall OBJECTS_OperateFunction49_HellForgeSetValuesHook(void* pObj)
 {
-	uint8_t* pGame = *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(pObj) + 0x8);
+	D2GameStrc* pGame = *reinterpret_cast<D2GameStrc**>(reinterpret_cast<uint8_t*>(pObj) + 0x8);
 	auto pQuestData = QUESTS_GetQuestData(pGame, 0x18);
 	if (!pQuestData)
 	{
