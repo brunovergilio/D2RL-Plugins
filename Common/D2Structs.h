@@ -228,3 +228,100 @@ struct D2GSPacketSrv5D
 	uint8_t nState;
 	uint16_t field_4;
 };
+
+
+#pragma pack(push, 1)
+struct D2GSPacketSrv26 {
+	uint8_t  nHeader;         // 0x00 (0x26)
+	uint8_t  nMessageType;    // 0x01
+	uint8_t  nLang;           // 0x02
+	uint8_t  nUnitType;       // 0x03
+	uint32_t dwUnitGUID;      // 0x04
+	uint8_t  nMessageColor;   // 0x08
+	uint8_t  nNameColor;      // 0x09
+	char     szName[61];      // 0x0A (Max 60 chars + null)
+	char     szMessage[256];  // 0x47 (Max 255 chars + null)
+};
+
+struct D2GSPacketSrv5A		//size of 0x28
+{
+	uint8_t nHeader;			//0x00
+	uint8_t nType;				//0x01
+	union
+	{
+		struct //nType < 0x13
+		{
+			uint8_t nColor;			//0x02
+			uint32_t dwParam;			//0x03
+			uint8_t nParam;			//0x07
+			union
+			{
+				char szText[32];	//0x08
+				char szTextData[2][16];	//0x08
+			};
+		};
+
+		struct	//nType 0x13
+		{
+			uint32_t dwSkill;			//0x02
+			uint32_t dwEndFrame;		//0x06
+			uint8_t nExtraData2[30];	//0x0A
+		};
+
+		struct	//nType 0x14
+		{
+			uint8_t nGroup;			//0x02
+			uint32_t dwGroupEndFrame;	//0x03
+			uint8_t nExtraData3[33];	//0x07
+		};
+
+		struct //nType 0x16
+		{
+			int32_t nItemId;			//0x02
+			int32_t nPlayerId;			//0x06
+			uint8_t nExtraData4[30];	//0x0A
+		};
+
+		struct //nType 0x17
+		{
+			uint8_t nDamageColor;		//0x02
+			uint32_t dwDamage;			//0x03
+			int32_t nDefenderGUID;		//0x07
+			int32_t nDefenderType;		//0x0B
+			uint8_t nExtraData5[25];	//0x0F
+		};
+
+		struct //nType 0x18
+		{
+			uint8_t nUnitType;			//0x02
+			int32_t nItemGUID;			//0x03
+			uint8_t nAction;			//0x07
+			int32_t nPosX;				//0x08
+			int32_t nPosY;				//0x0C
+			uint8_t nExtraData6[24];	//0x10
+		};
+
+		struct //nType 0x19
+		{
+			uint8_t nDefenderUnitType;	//0x02
+			int32_t nDefenderUnitGUID;	//0x03
+			uint8_t nAttackerUnitType;	//0x07
+			int32_t nAttackerUnitGUID;	//0x08
+			uint8_t nAttackMessageColor;//0x0C
+			uint8_t nExtraData7[27];	//0x0D
+		};
+
+		struct //nType 0x1A
+		{
+			int32_t nFrames;			//0x02
+			uint8_t nExtraData8[34];	//0x06
+		};
+
+		struct //nType 0x1B
+		{
+			int32_t nCount;			//0x02
+			uint8_t nExtraData9[34];	//0x06
+		};
+	};
+};
+#pragma pack(pop)

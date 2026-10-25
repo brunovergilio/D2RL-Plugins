@@ -9,18 +9,18 @@ R"toml(# Qual-Kehk
 # Master switch - set to false to prevent hooks from being installed.
 enabled = true
 
-# runes represents an array of item codes. These are not runes the code rolls from - they're
+# rewards represents an array of item codes. These are not items the code rolls from - they're
 # the exact rewards Qual-Kehk will give per difficulty. Maximum reward count = 40.
 # Item code are at most 4 characters long. Anything over that is ignored.
 
 [normal]
-runes = ["r07", "r08", "r09"]
+rewards = ["r07", "r08", "r09"]
 
 [nightmare]
-runes = ["r16", "r17", "r18"]
+rewards = ["r16", "r17", "r18"]
 
 [hell]
-runes = ["r21", "r22", "r23"])toml"sv;
+rewards = ["r21", "r22", "r23"])toml"sv;
 
 
 static constexpr D2RL::PluginFlags PatchingSampleFlags = D2RL::PluginFlags::Shared | D2RL::PluginFlags::NativeHooks;
@@ -144,11 +144,11 @@ private:
 				auto lootTable = table[pTable];
 				auto& dropCodes = m_ItemDropCodes[index];
 
-				auto runes = lootTable["runes"].as_array();
-				if (runes && runes->size() > 0)
+				auto rewards = lootTable["rewards"].as_array();
+				if (rewards && rewards->size() > 0)
 				{
-					dropCodes.reserve(std::min(runes->size(), kMaxItems));
-					for (auto it = runes->begin(); it != runes->end() && dropCodes.size() < kMaxItems; it++)
+					dropCodes.reserve(std::min(rewards->size(), kMaxItems));
+					for (auto it = rewards->begin(); it != rewards->end() && dropCodes.size() < kMaxItems; it++)
 					{
 						strToCode.itemCode = '    ';
 						currChar = 0;
@@ -264,9 +264,9 @@ static constexpr D2RL::PluginInfo PatchingSampleInfo
 	.abiVersion = D2RL_PLUGIN_ABI_VERSION,
 	.id = "qualkehk",
 	.name = "Qual-Kehk Plugin",
-	.version = "0.0.8",
+	.version = "0.1.0",
 	.author = "ArchVile",
-	.description = "Allows control over how many runes Qual-Kehk's quest gives, as well as which ones, per difficulty.",
+	.description = "Allows control over which items Qual-Kehk's quest gives, per difficulty.",
 	.flags = PatchingSampleFlags,
 };
 

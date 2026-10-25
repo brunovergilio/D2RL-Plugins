@@ -1,0 +1,17 @@
+# Radament
+# Enables custom skill point rewards after reading Radament's skill book, per difficulty.
+
+[radament]
+# Master switch - set to false to prevent hooks from being installed.
+enabled = true
+
+# num_skills is the number of skill points given after reading the skill book.
+
+[normal]
+num_skills = 1
+
+[nightmare]
+num_skills = 2
+
+[hell]
+num_skills = 3

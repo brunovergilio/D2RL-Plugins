@@ -5,5 +5,7 @@
   </Configurations>
   <Project Path="Common/Common.vcxproj" Id="84b7d41b-1bc8-485f-89b7-24fde01f4e01" />
   <Project Path="Hellforge/Hellforge.vcxproj" Id="84b154ed-7669-4533-8512-bd217f7da4b7" />
+  <Project Path="MidFunctionHookTest/MidFunctionHookTest.vcxproj" Id="54d63240-1897-4384-bd72-f455f33687cb" />
   <Project Path="QualKehk/QualKehk.vcxproj" Id="f975cbb8-0802-448e-8411-398ff7ae29e4" />
+  <Project Path="Radament/Radament.vcxproj" Id="0820c106-a3bc-4e5b-84ef-83c526859fc3" />
 </Solution>
