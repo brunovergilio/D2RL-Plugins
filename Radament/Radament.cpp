@@ -1,6 +1,12 @@
 #include "Common/D2Functions.h"
 
 
+// This plugin was supposed to patch the new SKILLITEM_pSpell10_BookOfSkill() function, which is very simple; however, for some reason,
+// the code wouldn't work, and instead of adding more skill points to what was existing, it would only change the UI briefly, before
+// a single assignment would revert back to the original skill points available. Therefore, I had to place a mid-function hook, and
+// handle the addition of skill points through assembly. Not ideal, but for now I'll stick to this.
+
+
 constexpr auto kTOMLFile =
 R"toml(# Radament
 # Enables custom skill point rewards after reading Radament's skill book, per difficulty.
@@ -21,18 +27,34 @@ num_skills = 2
 num_skills = 3)toml"sv;
 
 
-static constexpr D2RL::PluginFlags PatchingSampleFlags = D2RL::PluginFlags::Shared | D2RL::PluginFlags::NativeHooks;
+constexpr D2RL::PluginFlags PatchingSampleFlags = D2RL::PluginFlags::Server | D2RL::PluginFlags::NativeHooks;
+
+constexpr ptrdiff_t kRVAToPatch = 0x580782;
+
+constexpr std::initializer_list<uint8_t> kExpectedBytes =
+{
+	0x45, 0x33, 0xc9,
+	0x48, 0x8b, 0xcf,
+	0x41, 0x8d, 0x51, 0x05,
+	0x45, 0x8d, 0x41, 0x01,
+	0xe8, 0x5b, 0x2d, 0xd7, 0xff
+};
 
 
-UNITS_GetPlayerDataFn UNITS_GetPlayerData{};
-QUESTRECORD_ClearQuestStateFn QUESTRECORD_ClearQuestState{};
-STATLIST_AddUnitStatFn STATLIST_AddUnitStat{};
-QUESTS_SendLogUpdateFn QUESTS_SendLogUpdate{};
-SKILLITEM_pSpell10_BookOfSkillFn SKILLITEM_pSpell10_BookOfSkillOriginal{};
+extern "C"
+{
+	// ASM hook
+	void RadamentASMHook();
 
+	// Where to go back to once the hook finishes
+	ptrdiff_t g_JumpBackAddress = 0x580795;
 
-// Forward declarations
-int32_t __fastcall SKILLITEM_pSpell10_BookOfSkillHook(D2GameStrc* pGame, D2UnitStrc* pUnit, D2UnitStrc* pItem);
+	// This will store the global function address - initially set to the RVA
+	ptrdiff_t g_STATLIST_AddUnitStatAddress = kSTATLIST_AddUnitStatRVA;
+
+	// This will store Radament::m_SkillPoints
+	int32_t* g_pSkillPoints = nullptr;
+}
 
 
 // Main plugin class
@@ -52,22 +74,38 @@ public:
 			return true;
 		}
 
-		if (!D2_GET_FUNCTION(pContext, UNITS_GetPlayerData) ||
-			!D2_GET_FUNCTION(pContext, QUESTRECORD_ClearQuestState) ||
-			!D2_GET_FUNCTION(pContext, STATLIST_AddUnitStat) ||
-			!D2_GET_FUNCTION(pContext, QUESTS_SendLogUpdate) ||
-			!D2_HOOK_FUNCTION(pContext, SKILLITEM_pSpell10_BookOfSkill))
+		uint8_t patch[19] = { 0xff, 0x25 };
+		*(uint64_t*)&patch[6] = (uint64_t)RadamentASMHook;
+		for (auto i = 14; i < 19; i++)
 		{
-			pContext->LogError("Failure in loading / hooking one or more function pointers.");
+			patch[i] = 0x90;
+		}
+
+		if (!pContext->CheckExpectedBytes(kRVAToPatch, kExpectedBytes.data(), uint32_t(kExpectedBytes.size())))
+		{
 			return false;
 		}
+
+		if (!pContext->PatchBytes(kRVAToPatch, kExpectedBytes.data(), uint32_t(kExpectedBytes.size()), patch, sizeof(patch)))
+		{
+			return false;
+		}
+
+		// Append the base exe to the jump back address
+		g_JumpBackAddress += pContext->exeBase;
+
+		// Append the base exe address to the variable accessed in asm
+		g_STATLIST_AddUnitStatAddress += pContext->exeBase;
+		
+		// Assign the skill point value array to the variable accessed in asm
+		g_pSkillPoints = m_SkillPoints;
 
 		pContext->LogInfo("Plugin enabled - hooks installed.");
 		return true;
 	}
 
 	auto IsEnabled() const { return m_Enabled; }
-	auto GetNumSkills(uint8_t difficulty) const { return m_NumSkills[difficulty]; }
+	auto GetNumSkills(uint8_t difficulty) const { return m_SkillPoints[difficulty]; }
 
 private:
 	bool LoadConfig(const D2RL::PluginContext* pContext)
@@ -108,7 +146,7 @@ private:
 			{
 				auto lootTable = table[pTable];
 
-				m_NumSkills[index] = lootTable["num_skills"].value_or(1);
+				m_SkillPoints[index] = lootTable["num_skills"].value_or(1);
 			};
 
 		fillValues("normal", 0);
@@ -119,25 +157,12 @@ private:
 	}
 
 private:
-	int32_t m_NumSkills[3]{};
+	int32_t m_SkillPoints[3]{};
 	bool m_Enabled{};
 };
 
 
 Radament g_Radament;
-
-
-int32_t __fastcall SKILLITEM_pSpell10_BookOfSkillHook(D2GameStrc* pGame, D2UnitStrc* pUnit, D2UnitStrc* pItem)
-{
-	auto playerData = reinterpret_cast<uint64_t>(UNITS_GetPlayerData(pUnit));
-	auto pQuestFlags = reinterpret_cast<D2BitBufferStrc*>(*reinterpret_cast<uint64_t*>(playerData + 0x40 + pGame->nDifficulty * 8ull));
-
-	QUESTRECORD_ClearQuestState(pQuestFlags, 9, 5);
-	STATLIST_AddUnitStat(pUnit, 5, g_Radament.GetNumSkills(pGame->nDifficulty));
-	QUESTS_SendLogUpdate(pUnit, 8);
-
-	return 1;
-}
 
 
 static constexpr D2RL::PluginInfo PatchingSampleInfo
@@ -151,7 +176,6 @@ static constexpr D2RL::PluginInfo PatchingSampleInfo
 	.description = "Allows control over how many skill points reading Radament's book awards, per difficulty.",
 	.flags = PatchingSampleFlags,
 };
-
 
 
 D2RL_PLUGIN_EXPORT auto D2RLoaderGetPluginInfo() noexcept -> const D2RL::PluginInfo*

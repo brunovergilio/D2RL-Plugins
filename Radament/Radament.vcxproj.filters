@@ -6,4 +6,7 @@
   <ItemGroup>
     <ResourceCompile Include="radament.rc" />
   </ItemGroup>
+  <ItemGroup>
+    <MASM Include="RadamentHook.asm" />
+  </ItemGroup>
 </Project>
