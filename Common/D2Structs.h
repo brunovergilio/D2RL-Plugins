@@ -23,14 +23,14 @@ struct D2SeedStrc
 
 struct D2GameStrc
 {
-	uint8_t pad0[0x68];
+	uint8_t pad0[0x104];
 	uint8_t nDifficulty;
 	uint8_t pad00;
 	uint8_t expansion;
-	uint8_t pad1[0x104];
+	uint8_t pad1[0x69];
 	uint32_t gameFrame;
-	uint8_t pad2[0x2064];
-	void* pQuestControl; // D2QuestInfoStrc
+	//uint8_t pad2[0x2064];
+	//void* pQuestControl; // D2QuestInfoStrc
 };
 
 using D2MonStatsTxt = uint8_t;
